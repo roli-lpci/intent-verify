@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -44,6 +46,21 @@ def test_cli_missing_fixture():
     result = run_cli("check", "--spec", str(fixture / "INTENT.md"), "--repo", str(fixture))
     assert result.returncode == 2
     assert "MISSING" in result.stdout
+
+
+@pytest.mark.parametrize("command", ["check", "map"])
+def test_cli_rejects_directory_spec_without_traceback(command: str):
+    fixture = ROOT / "tests" / "fixtures" / "repo_ok"
+    args = [command, "--spec", str(fixture), "--repo", str(fixture)]
+    if command == "map":
+        args.extend(["--evidence-path", "src"])
+
+    result = run_cli(*args)
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr == f"intent-verify: spec path is not a file: {fixture}\n"
+    assert "Traceback" not in result.stderr
 
 
 def test_map_emits_provenance_and_non_authoritative_contract():

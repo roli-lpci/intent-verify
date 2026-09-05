@@ -78,6 +78,9 @@ def main(argv: list[str] | None = None) -> int:
     if not spec_path.exists():
         print(f"intent-verify: spec not found: {spec_path}", file=sys.stderr)
         return 2
+    if not spec_path.is_file():
+        print(f"intent-verify: spec path is not a file: {spec_path}", file=sys.stderr)
+        return 2
     if not repo_path.exists() or not repo_path.is_dir():
         print(f"intent-verify: repo path is not a directory: {repo_path}", file=sys.stderr)
         return 2
