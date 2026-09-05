@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 - 2026-09-05
+
+- Added the advisory `intent-verify map` contract for orchestration and CI.
+- Required explicit implementation evidence paths for coverage maps, preventing
+  unrelated repository documentation from satisfying the signal by default.
+- Added per-item evidence paths, a versioned JSON schema identifier, and an
+  explicit `acceptance_authority: false` boundary.
+- Added a root composite GitHub Action with covered, partial, and
+  documentation-only gap fixtures.
+
 ## 0.1.2 - 2026-08-04
 
 - Clarified the README and the boundary between lexical coverage and semantic

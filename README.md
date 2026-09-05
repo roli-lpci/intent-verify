@@ -4,9 +4,15 @@
 [![PyPI](https://img.shields.io/pypi/v/intent-verify.svg)](https://pypi.org/project/intent-verify/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-intent-verify is a deterministic, zero-LLM command-line tool that checks whether a repo's source still lexically covers the acceptance items written in a markdown spec, `INTENT.md`, or handoff doc — and returns `verified`, `partial`, or `missing`.
+intent-verify is a deterministic, zero-LLM coverage mapper for markdown specs,
+`INTENT.md` files, and handoff documents. Its orchestration contract maps each
+acceptance item to explicit implementation files and returns `covered`,
+`partial`, or `gap` with provenance.
 
-Use it when your repo has an `INTENT.md`, `SPEC.md`, or handoff doc but nobody knows whether the code still matches it. It is a fast guardrail for catching spec drift before review, release, or handoff.
+Use it after code changes and before review when you need to see whether stated
+scope is visibly represented in the exact source and test roots you name. A gap
+can stop a claim that scope is covered. A covered result sends work to review;
+it never authorizes acceptance, merge, or release.
 
 ## How it works
 
@@ -14,10 +20,59 @@ intent-verify is intentionally simple and fully deterministic — no model, no n
 
 1. Parse acceptance items from the spec (inline `Accepts:`/`Requirements:`/`Scope:` lines and bullet/numbered lists under matching headings).
 2. Tokenize each item, dropping common stop words.
-3. For each item, compute the fraction of its tokens that appear as substrings somewhere in the repo's source files (the spec file itself is excluded from the evidence).
+3. For each item, compute the fraction of its tokens that appear as substrings in the selected evidence files (the spec file itself is excluded).
 4. Score each item against two thresholds and roll up to a single verdict.
 
 Coverage is a lexical token-overlap signal, not a semantic judgment.
+
+## Orchestration coverage map
+
+Name implementation evidence explicitly. This prevents a matching README
+elsewhere in the repository from satisfying the map:
+
+```bash
+intent-verify map \
+  --spec INTENT.md \
+  --repo . \
+  --evidence-path src \
+  --evidence-path tests
+```
+
+The command emits only JSON using the versioned
+`intent-verify.coverage-map.v1` contract. Each item includes the files that
+contributed matching terms. The top-level `acceptance_authority` is always
+`false`; `decision` is `review` for covered scope and `inspect` for partial or
+gap results.
+
+| Map verdict | Exit | Orchestration meaning |
+| --- | ---: | --- |
+| `covered` | `0` | Continue to tests and review; do not accept automatically. |
+| `partial` | `1` | Inspect the weak items before claiming scope coverage. |
+| `gap` | `2` | Stop the scope-covered claim and inspect missing evidence. |
+
+For Hermes Cloud Lane packets, pass the map command through the existing
+`--verify` field. This keeps the signal post-change and explicit instead of
+turning it into an always-on hook.
+
+### GitHub Action
+
+The root composite Action applies the same contract. After an immutable `v1`
+release, a workflow can use:
+
+```yaml
+- name: Map intent to changed implementation surfaces
+  uses: hermes-labs-ai/intent-verify@v1
+  with:
+    spec: INTENT.md
+    repo: .
+    evidence-paths: |
+      src
+      tests
+```
+
+Pin the full release commit when your supply-chain policy requires it. Upload
+the path returned by the Action's `receipt` output when the JSON should remain
+as a build artifact.
 
 ## Install
 
@@ -101,7 +156,11 @@ By default it extracts items from:
 intent-verify check --spec INTENT.md --repo . --json
 ```
 
-The JSON object includes `spec_path`, `repo_path`, `files_scanned`, `average_coverage`, `verdict`, the `thresholds` used, and an `items[]` array with each item's parsed text, tokens, coverage, and verdict.
+The JSON object includes `spec_path`, `repo_path`, `files_scanned`,
+`average_coverage`, `verdict`, the thresholds used, and an `items[]` array with
+each item's parsed text, tokens, coverage, verdict, and contributing evidence
+paths. Legacy `check` output remains compatible and now includes the explicit
+non-authority metadata.
 
 ## Limitations / what it does NOT do
 
@@ -112,6 +171,9 @@ The JSON object includes `spec_path`, `repo_path`, `files_scanned`, `average_cov
 - **It is not proof of correctness** and does not replace tests or code review. It answers "does the implementation visibly cover the stated scope?" — not "is the software correct?"
 - **It needs a human-readable spec.** With no `INTENT.md`/`SPEC.md`/requirements/handoff file there is nothing to check against.
 - **Source-file scope only.** It scans a fixed set of source extensions (Python, JS/TS, Go, Rust, shell, config, markdown, etc.) and skips common build/vendor directories.
+- **Evidence paths are not behavioral proof.** `map` prevents unrelated paths
+  from contributing, but comments, docstrings, and dead code inside selected
+  paths can still match. Tests and review remain authoritative.
 
 ## Development
 

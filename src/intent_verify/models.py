@@ -16,6 +16,7 @@ class ItemResult:
     tokens: list[str]
     coverage: float
     verdict: Verdict
+    evidence_paths: list[str]
 
 
 @dataclass(frozen=True)
@@ -28,3 +29,4 @@ class CheckResult:
     verdict: Verdict
     min_verified: float
     min_item: float
+    evidence_roots: list[str]

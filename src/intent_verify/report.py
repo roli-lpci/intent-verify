@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .models import CheckResult, ItemResult, Verdict
 from .parser import parse_spec_items
-from .scanner import coverage_for_tokens, load_repo_blobs
+from .scanner import evidence_for_tokens, load_repo_blobs
 from .tokenizer import tokenize
 
 
@@ -37,21 +37,27 @@ def run_check(
     section: str | None = None,
     min_verified: float = 0.7,
     min_item: float = 0.3,
+    evidence_paths: list[Path] | None = None,
 ) -> CheckResult:
     text = spec_path.read_text(encoding="utf-8")
     items = parse_spec_items(text, section=section)
-    blobs = load_repo_blobs(repo_path, exclude_paths={spec_path})
+    blobs = load_repo_blobs(
+        repo_path,
+        evidence_paths=evidence_paths,
+        exclude_paths={spec_path},
+    )
 
     item_results: list[ItemResult] = []
     for item in items:
         tokens = tokenize(item)
-        coverage = coverage_for_tokens(tokens, blobs)
+        coverage, matched_paths = evidence_for_tokens(tokens, blobs)
         item_results.append(
             ItemResult(
                 text=item,
                 tokens=tokens,
                 coverage=coverage,
                 verdict=coverage_verdict(coverage, min_verified, min_item),
+                evidence_paths=matched_paths,
             )
         )
 
@@ -70,6 +76,12 @@ def run_check(
         verdict=verdict,
         min_verified=min_verified,
         min_item=min_item,
+        evidence_roots=[
+            str(path.resolve().relative_to(repo_path.resolve()))
+            if path.resolve() != repo_path.resolve()
+            else "."
+            for path in evidence_paths or [repo_path]
+        ],
     )
 
 
@@ -78,6 +90,9 @@ def to_json(result: CheckResult) -> str:
         {
             "spec_path": result.spec_path,
             "repo_path": result.repo_path,
+            "signal_kind": "lexical_scope_coverage",
+            "acceptance_authority": False,
+            "evidence_roots": result.evidence_roots,
             "files_scanned": result.files_scanned,
             "average_coverage": round(result.average_coverage, 3),
             "verdict": result.verdict.value,
@@ -91,12 +106,36 @@ def to_json(result: CheckResult) -> str:
                     "tokens": item.tokens,
                     "coverage": round(item.coverage, 3),
                     "verdict": item.verdict.value,
+                    "evidence_paths": item.evidence_paths,
                 }
                 for item in result.items
             ],
         },
         indent=2,
     )
+
+
+def to_coverage_map_json(result: CheckResult) -> str:
+    verdict = {
+        Verdict.VERIFIED: "covered",
+        Verdict.PARTIAL: "partial",
+        Verdict.MISSING: "gap",
+    }[result.verdict]
+    payload = json.loads(to_json(result))
+    payload.update(
+        {
+            "schema_version": "intent-verify.coverage-map.v1",
+            "verdict": verdict,
+            "decision": "inspect" if verdict != "covered" else "review",
+        }
+    )
+    for item in payload["items"]:
+        item["verdict"] = {
+            "verified": "covered",
+            "partial": "partial",
+            "missing": "gap",
+        }[item["verdict"]]
+    return json.dumps(payload, indent=2)
 
 
 def to_text(result: CheckResult) -> str:
