@@ -61,7 +61,7 @@ release, a workflow can use:
 
 ```yaml
 - name: Map intent to changed implementation surfaces
-  uses: hermes-labs-ai/intent-verify@v1
+  uses: hermes-labs-ai/intent-verify@v0.2.0
   with:
     spec: INTENT.md
     repo: .
