@@ -1,0 +1,96 @@
+name: Intent Verify coverage map
+description: Map markdown acceptance items to explicit implementation evidence as an advisory CI signal.
+author: Hermes Labs
+
+branding:
+  icon: map
+  color: purple
+
+inputs:
+  spec:
+    description: Path to the markdown spec, INTENT, or handoff document.
+    required: true
+  repo:
+    description: Repository root used to resolve evidence paths.
+    required: false
+    default: .
+  evidence-paths:
+    description: Newline-separated repo-relative implementation files or directories to scan.
+    required: true
+  section:
+    description: Optional markdown heading containing the acceptance items.
+    required: false
+  min-covered:
+    description: Per-item lexical coverage required for covered status.
+    required: false
+    default: "0.7"
+  min-item:
+    description: Per-item lexical coverage below which the result is a gap.
+    required: false
+    default: "0.3"
+
+outputs:
+  verdict:
+    description: "Advisory lexical result: covered, partial, or gap."
+    value: ${{ steps.map.outputs.verdict }}
+  decision:
+    description: "Next orchestration step: review or inspect."
+    value: ${{ steps.map.outputs.decision }}
+  receipt:
+    description: Absolute path to the JSON coverage-map receipt.
+    value: ${{ steps.map.outputs.receipt }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.11"
+    - name: Install Intent Verify from this action
+      shell: bash
+      run: python -m pip install "$GITHUB_ACTION_PATH"
+    - name: Map spec to explicit evidence
+      id: map
+      shell: bash
+      env:
+        IV_SPEC: ${{ inputs.spec }}
+        IV_REPO: ${{ inputs.repo }}
+        IV_EVIDENCE_PATHS: ${{ inputs.evidence-paths }}
+        IV_SECTION: ${{ inputs.section }}
+        IV_MIN_COVERED: ${{ inputs.min-covered }}
+        IV_MIN_ITEM: ${{ inputs.min-item }}
+      run: |
+        receipt="$RUNNER_TEMP/intent-verify-coverage-map.json"
+        args=(
+          intent-verify map
+          --spec "$IV_SPEC"
+          --repo "$IV_REPO"
+          --min-verified "$IV_MIN_COVERED"
+          --min-item "$IV_MIN_ITEM"
+        )
+        while IFS= read -r evidence_path; do
+          if [[ -n "$evidence_path" ]]; then
+            args+=(--evidence-path "$evidence_path")
+          fi
+        done <<< "$IV_EVIDENCE_PATHS"
+        if [[ -n "$IV_SECTION" ]]; then
+          args+=(--section "$IV_SECTION")
+        fi
+
+        set +e
+        "${args[@]}" > "$receipt"
+        map_exit=$?
+        set -e
+
+        if [[ ! -s "$receipt" ]]; then
+          exit "$map_exit"
+        fi
+
+        verdict=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["verdict"])' "$receipt")
+        decision=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["decision"])' "$receipt")
+        echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+        echo "decision=$decision" >> "$GITHUB_OUTPUT"
+        echo "receipt=$receipt" >> "$GITHUB_OUTPUT"
+        cat "$receipt"
+        exit "$map_exit"

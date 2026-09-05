@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "intent-verify"
-version = "0.1.2"
-description = "Repo intent verification and spec drift checks for markdown specs, handoffs, and codebases."
+version = "0.2.0"
+description = "Map markdown acceptance items to explicit implementation evidence for advisory spec-drift checks."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

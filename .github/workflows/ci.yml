@@ -20,3 +20,48 @@ jobs:
         run: ruff check .
       - name: Tests
         run: pytest -q
+
+  action-fixtures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Covered fixture
+        id: covered
+        uses: ./
+        with:
+          spec: tests/fixtures/repo_ok/INTENT.md
+          repo: tests/fixtures/repo_ok
+          evidence-paths: src
+      - name: Partial fixture
+        id: partial
+        continue-on-error: true
+        uses: ./
+        with:
+          spec: tests/fixtures/repo_partial/INTENT.md
+          repo: tests/fixtures/repo_partial
+          evidence-paths: src
+      - name: Documentation-only gap fixture
+        id: gap
+        continue-on-error: true
+        uses: ./
+        with:
+          spec: tests/fixtures/repo_docs_only/INTENT.md
+          repo: tests/fixtures/repo_docs_only
+          evidence-paths: src
+      - name: Assert action contract
+        env:
+          COVERED_OUTCOME: ${{ steps.covered.outcome }}
+          COVERED_VERDICT: ${{ steps.covered.outputs.verdict }}
+          COVERED_DECISION: ${{ steps.covered.outputs.decision }}
+          PARTIAL_OUTCOME: ${{ steps.partial.outcome }}
+          PARTIAL_VERDICT: ${{ steps.partial.outputs.verdict }}
+          GAP_OUTCOME: ${{ steps.gap.outcome }}
+          GAP_VERDICT: ${{ steps.gap.outputs.verdict }}
+        run: |
+          test "$COVERED_OUTCOME" = success
+          test "$COVERED_VERDICT" = covered
+          test "$COVERED_DECISION" = review
+          test "$PARTIAL_OUTCOME" = failure
+          test "$PARTIAL_VERDICT" = partial
+          test "$GAP_OUTCOME" = failure
+          test "$GAP_VERDICT" = gap

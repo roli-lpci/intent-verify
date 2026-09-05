@@ -9,6 +9,7 @@
 
 ## When to use it
 
+- Post-change advisory mapping from stated scope to explicit source/test roots
 - Repo intent verification
 - Spec drift checks
 - Handoff verification
@@ -16,6 +17,8 @@
 
 ## When not to use it
 
+- Do not install it as an always-on or per-turn orchestration hook.
+- Do not let `covered` authorize acceptance, merge, release, or a public effect.
 - Do not use it as proof of correctness.
 - Do not use it when there is no markdown spec file.
 - Do not use it when you need semantic analysis rather than lexical coverage.
@@ -23,11 +26,21 @@
 ## Minimal invocation
 
 ```bash
+intent-verify map --spec INTENT.md --repo . --evidence-path src --evidence-path tests
 intent-verify check --spec INTENT.md --repo .
 intent-verify check --spec SPEC.md --repo . --json
 ```
 
 ## Expected output shape
+
+Coverage-map JSON:
+
+- `schema_version: intent-verify.coverage-map.v1`
+- `signal_kind: lexical_scope_coverage`
+- `acceptance_authority: false`
+- `evidence_roots[]`
+- `decision: review|inspect`
+- `items[].evidence_paths[]`
 
 Text mode:
 
@@ -60,6 +73,10 @@ JSON mode:
 - the only matching text is inside the spec itself, not the implementation
 
 ## What counts as success
+
+- `map` `covered` (exit 0) permits review, not acceptance.
+- `map` `partial` or `gap` (exit 1 or 2) blocks only a claim that scope is covered.
+- A documentation-only match outside the named evidence paths must not pass.
 
 - `verified` (exit code 0) means every parsed item cleared the verified threshold
 - `partial` (exit code 1) means at least one item is only partly covered
