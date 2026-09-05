@@ -56,8 +56,8 @@ turning it into an always-on hook.
 
 ### GitHub Action
 
-The root composite Action applies the same contract. After an immutable `v1`
-release, a workflow can use:
+The root composite Action applies the same contract. A workflow can use the
+immutable `v0.2.0` release:
 
 ```yaml
 - name: Map intent to changed implementation surfaces

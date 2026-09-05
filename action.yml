@@ -83,6 +83,10 @@ runs:
         map_exit=$?
         set -e
 
+        if [[ ! -s "$receipt" ]]; then
+          exit "$map_exit"
+        fi
+
         verdict=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["verdict"])' "$receipt")
         decision=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["decision"])' "$receipt")
         echo "verdict=$verdict" >> "$GITHUB_OUTPUT"

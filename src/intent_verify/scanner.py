@@ -47,10 +47,11 @@ def load_repo_blobs(
     excluded = {path.resolve() for path in (exclude_paths or set())}
     blobs: list[tuple[str, str]] = []
     roots = evidence_paths or [repo_path]
-    candidates: list[Path] = []
+    candidates: list[tuple[Path, Path]] = []
     for root_path in roots:
+        resolved_root = root_path.resolve()
         if root_path.is_file():
-            candidates.append(root_path)
+            candidates.append((root_path, resolved_root.parent))
             continue
         for root, dirs, files in os.walk(root_path):
             dirs[:] = [
@@ -58,11 +59,15 @@ def load_repo_blobs(
                 for name in dirs
                 if name not in DEFAULT_SKIP_DIRS and not name.startswith(".")
             ]
-            candidates.extend(Path(root) / name for name in files)
+            candidates.extend((Path(root) / name, resolved_root) for name in files)
 
     seen: set[Path] = set()
-    for path in candidates:
+    for path, evidence_root in candidates:
         resolved = path.resolve()
+        try:
+            resolved.relative_to(evidence_root)
+        except ValueError:
+            continue
         if resolved in seen:
             continue
         seen.add(resolved)

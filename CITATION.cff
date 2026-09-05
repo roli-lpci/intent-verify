@@ -10,7 +10,7 @@ authors:
     affiliation: "Hermes Labs"
 license: MIT
 version: "0.2.0"
-date-released: "2026-08-04"
+date-released: "2026-09-05"
 repository-code: "https://github.com/hermes-labs-ai/intent-verify"
 references:
   - type: article
